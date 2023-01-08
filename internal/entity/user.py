@@ -4,7 +4,7 @@ from internal.entity.base import Base
 from internal.entity.timestamp_mixin import TimestampMixin
 
 
-class User(Base, TimestampMixin):
+class User(TimestampMixin, Base):
 
     __tablename__ = "users"
 
@@ -12,6 +12,7 @@ class User(Base, TimestampMixin):
         sa.UniqueConstraint('email'),
         sa.UniqueConstraint('username'),
     )
+
 
     email = sa.Column(sa.String(255), nullable=False)
     username = sa.Column(sa.String(255), nullable=False)

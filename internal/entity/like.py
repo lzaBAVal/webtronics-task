@@ -11,12 +11,12 @@ class Like(Base, TimestampMixin):
 
     likes = sa.Column(
         sa.BigInteger, 
-        server_default=sa.func.now(),
+        server_default='0',
         nullable=False)
 
     dislikes = sa.Column(
         sa.BigInteger, 
-        server_default=sa.func.now(),
+        server_default='0',
         nullable=False)
 
     user_id = sa.Column(psql.UUID(as_uuid=True), sa.ForeignKey('users.id'), nullable=False)

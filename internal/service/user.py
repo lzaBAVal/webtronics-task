@@ -24,10 +24,9 @@ class UserService(object):
 
         try:
             self.session.add(user)
-            self.session.commit()
+            await self.session.commit()
 
             return UserDTO.from_orm(user)
 
         except IntegrityError as exc:
-            print("#" * 30, exc.params[0])
             raise UserAlreadyExistsError(exc.params[0])

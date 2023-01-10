@@ -17,4 +17,4 @@ class User(TimestampMixin, Base):
     email = sa.Column(sa.String(255), nullable=False)
     username = sa.Column(sa.String(255), nullable=False)
     password = sa.Column(sa.String(255), nullable=False)
-    disabled = sa.Column(sa.Boolean(), nullable=False)
+    disabled = sa.Column(sa.Boolean(), default=False, nullable=False)

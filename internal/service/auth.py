@@ -1,5 +1,4 @@
-from datetime import timedelta
-import datetime
+from datetime import timedelta, datetime
 
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
@@ -23,7 +22,7 @@ from passlib.context import CryptContext
 
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl='/auth/sign-in/')
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl='/v1/auth/sign-in')
 
 
 def get_current_user(token: str = Depends(oauth2_scheme)) -> UserDTO:
@@ -61,7 +60,8 @@ class AuthenticateService(object):
 
         return Token(access_token=token)
 
-    async def verify_token(self, token: Token) -> UserDTO:
+    @classmethod
+    def verify_token(cls, token: str) -> UserDTO:
         try:
             payload = jwt.decode(
                 token,
@@ -91,10 +91,10 @@ class AuthenticateService(object):
         except IntegrityError as exc:
             raise UserAlreadyExistsError(exc.params[0])
 
-        return self.create_token(user)
+        return await self.create_token(user)
 
     async def authenticate_user(self, dto: UserAuthDTO) -> Token:
-        user = self.session.execute(select(User).filter_by(email=dto.email))
+        user = await self.session.execute(select(User).filter_by(email=dto.username))
         user: User = user.scalar()
 
         if not user:
@@ -103,4 +103,4 @@ class AuthenticateService(object):
         if not self.verify_password(dto.password, user.password):
             raise WrongUserPasswordError
 
-        return self.create_token(user) 
+        return await self.create_token(user) 

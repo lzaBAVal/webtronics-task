@@ -24,28 +24,13 @@ class UserService(object):
         if user:
             return UserDTO.from_orm(user)
         raise UserNotFoundError(id)
-        
-    '''
-    async def create(self, dto: CreateUserDTO) -> UserDTO:
-        user = User(**dto.dict())        
 
-        user.password = Hasher.get_password_hash( user.password)
+    async def update(self, user: UserDTO, dto: UpdateUserDTO) -> FullUserDTO:
 
-        try:
-            self.session.add(user)
-            await self.session.commit()
-
-            return UserDTO.from_orm(user)
-
-        except IntegrityError as exc:
-            raise UserAlreadyExistsError(exc.params[0])
-    '''
-
-    async def update(self, id: str, dto: UpdateUserDTO) -> FullUserDTO:
-        await self.session.execute(update(User).filter_by(id=id).values(**dto.dict()))
+        await self.session.execute(update(User).filter_by(email=user.email).values(**dto.dict()))
         await self.session.commit()
 
-        user = await self.session.execute(select(User).filter_by(id=id))
+        user = await self.session.execute(select(User).filter_by(email=user.email))
         user = user.scalar()
     
         if user:

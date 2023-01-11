@@ -18,10 +18,17 @@ def get_url(conf: DbConfig) -> str:
     return conf.db_scheme + "://" + conf.db_user + ":" + conf.db_pass + "@" + conf.db_host + ":" + conf.db_port + "/" + conf.db_name
 
 
+class JWTConfig(BaseSettings):
+    algorithm: str = 'HS256'
+    expires_sec: int = 3600
+    secret: str = '38c7c584daac3afdabcf71eb3218ce3ce4027c5e5716d801f0c89ca5710aae28'
+
+
 class Config(BaseSettings):
     server_host: str = '127.0.0.1'
     server_port: str = '8000'
     database_url: str = get_url(DbConfig())
+    jwt: JWTConfig = JWTConfig()
 
     class Config:
         env_prefix = 'WT'

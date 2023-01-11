@@ -6,11 +6,15 @@ from pydantic import BaseModel, EmailStr
 from uuid import UUID
 
 class UserDTO(BaseModel):
-    username: str
+    email: EmailStr
 
     class Config:
         allow_mutations = False
         orm_mode = True
+
+
+class UserAuthDTO(UserDTO):
+    password: str
 
 
 class CreateUserDTO(UserDTO):
@@ -18,7 +22,7 @@ class CreateUserDTO(UserDTO):
 
 
 class UpdateUserDTO(CreateUserDTO):
-    email: EmailStr
+    pass
 
 
 class FullUserDTO(UpdateUserDTO):

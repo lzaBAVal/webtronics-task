@@ -3,11 +3,10 @@ from dataclasses import dataclass
 from fastapi import Path
 
 from pydantic import BaseModel, EmailStr
-
+from uuid import UUID
 
 class UserDTO(BaseModel):
     username: str
-    email: EmailStr
 
     class Config:
         allow_mutations = False
@@ -16,6 +15,14 @@ class UserDTO(BaseModel):
 
 class CreateUserDTO(UserDTO):
     password: str
+
+
+class UpdateUserDTO(CreateUserDTO):
+    email: EmailStr
+
+
+class FullUserDTO(UpdateUserDTO):
+    id: UUID
 
 
 @dataclass

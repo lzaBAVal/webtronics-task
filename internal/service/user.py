@@ -1,14 +1,15 @@
 from typing import List
 from fastapi import Depends
-from sqlalchemy import select
+from pydantic import schema_json_of
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from internal.config.database import get_session
-from internal.dto.user import CreateUserDTO, UserDTO
+from internal.dto.user import CreateUserDTO, FullUserDTO, UpdateUserDTO, UserDTO
 
 from internal.entity.user import User
 from internal.exceptions.user import UserAlreadyExistsError, UserNotFoundError
-from internal.util.uuid import is_valid_uuid
+
 
 class UserService(object):
     def __init__(self, session: AsyncSession = Depends(get_session)) -> None:
@@ -38,5 +39,13 @@ class UserService(object):
         except IntegrityError as exc:
             raise UserAlreadyExistsError(exc.params[0])
 
-    async def update(self) -> UserDTO:
-        return 
+    async def update(self, id: str, dto: UpdateUserDTO) -> FullUserDTO:
+        await self.session.execute(update(User).filter_by(id=id).values(**dto.dict()))
+        await self.session.commit()
+
+        user = await self.session.execute(select(User).filter_by(id=id))
+        user = user.scalar()
+    
+        if user:
+            return FullUserDTO.from_orm(user)
+        raise UserNotFoundError(id)

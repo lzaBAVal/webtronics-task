@@ -1,6 +1,5 @@
 from typing import List
 from fastapi import Depends
-from pydantic import schema_json_of
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +8,7 @@ from internal.dto.user import CreateUserDTO, FullUserDTO, UpdateUserDTO, UserDTO
 
 from internal.entity.user import User
 from internal.exceptions.user import UserAlreadyExistsError, UserNotFoundError
+from internal.util.hasher import Hasher
 
 
 class UserService(object):
@@ -28,7 +28,9 @@ class UserService(object):
         raise UserNotFoundError(id)
 
     async def create(self, dto: CreateUserDTO) -> UserDTO:
-        user = User(**dto.dict())
+        user = User(**dto.dict())        
+
+        user.password = Hasher.get_password_hash( user.password)
 
         try:
             self.session.add(user)

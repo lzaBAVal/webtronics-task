@@ -11,3 +11,8 @@ class NotValidTokenError(HTTPException):
 class NotValidRefreshTokenError(Exception):
     def __init__(self) -> None:
         super().__init__(f"Not valid refresh token")
+
+
+class RefreshTokenExpiredError(Exception):
+    def __init__(self) -> None:
+        super().__init__(f"Refresh token expired")

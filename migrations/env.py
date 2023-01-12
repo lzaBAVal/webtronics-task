@@ -11,7 +11,7 @@ from alembic import context
 from internal.config import config as DBConfig
 
 from internal.entity.base import Base
-from internal.entity import user, post, like
+from internal.entity import user, post, like, token
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

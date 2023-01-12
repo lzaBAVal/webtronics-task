@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 
-from internal.dto.token import RefreshToken, Token, TokenPair
+from internal.dto.token import RefreshToken, TokenPair
 from internal.dto.user import CreateUserDTO
 from internal.service.auth import AuthenticateService
 
@@ -14,9 +14,9 @@ async def sign_up(form_data: CreateUserDTO = Depends(), auth_service: Authentica
 
 @router.post('/sign-in', response_model=TokenPair)
 async def sign_in(form_data: OAuth2PasswordRequestForm = Depends(), auth_service: AuthenticateService = Depends()):
-    return await auth_service.authenticate_user(form_data)
+    pair = await auth_service.authenticate_user(form_data)
+    return pair
 
 @router.post('/refresh-token', response_model=TokenPair)
 async def refresh_token(refresh_token: RefreshToken, auth_service: AuthenticateService = Depends()):
-    print("#"*30, refresh_token)
     return await auth_service.refresh_tokens(refresh_token)

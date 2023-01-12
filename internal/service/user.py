@@ -18,11 +18,11 @@ class UserService(object):
         res = res.scalars().all()
         return res
 
-    async def get(self, id: str) -> UserDTO:
+    async def get(self, id: str) -> User:
         user = await self.session.execute(select(User).filter_by(id=id))
         user = user.scalar()
         if user:
-            return UserDTO.from_orm(user)
+            return user
         raise UserNotFoundError(id)
 
     async def update(self, user: UserDTO, dto: UpdateUserDTO) -> FullUserDTO:

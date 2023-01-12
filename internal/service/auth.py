@@ -8,14 +8,15 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from pydantic import ValidationError
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
 from internal.dto.token import RefreshToken, Token, TokenPair
 from internal.dto.user import CreateUserDTO, UserAuthDTO, UserDTO
+from internal.entity.token import JWTToken
 from internal.entity.user import User
-from internal.exceptions.auth import NotValidRefreshTokenError, NotValidTokenError
+from internal.exceptions.auth import NotValidRefreshTokenError, NotValidTokenError, RefreshTokenExpiredError
 from internal.config.database import get_session
 from internal.exceptions.user import UserAlreadyExistsError, UserNotFoundError, WrongUserPasswordError
 from internal.config.config import config
@@ -27,7 +28,8 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl='/v1/auth/sign-in')
 
 
-def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
+def get_current_user(token: str = Depends(oauth2_scheme)) -> UserDTO:
+    print("token:", token)
     return AuthenticateService.verify_token(token)
 
 
@@ -64,6 +66,7 @@ class AuthenticateService(object):
 
     @classmethod
     def verify_token(cls, token: str) -> UserDTO:
+        print("#"*30, token)
         try:
             payload = jwt.decode(
                 token,
@@ -82,13 +85,23 @@ class AuthenticateService(object):
 
         return user
 
+    async def delete_refresh_token(self, user: User) -> None:
+        await self.session.execute(delete(JWTToken).filter_by(user_id=user.id))
+        await self.session.commit()
+    
     async def create_refresh_token(self, user: User) -> RefreshToken:
-        token = uuid.uuid4().hex
+        token_hex = uuid.uuid4().hex
 
-        await self.session.execute(update(User).filter_by(email=user.email).values(refresh_token=token))
+        token = JWTToken()
+        token.user_id = user.id
+        token.refresh_token=token_hex
+
+        await self.delete_refresh_token(user)
+
+        self.session.add(token)
         await self.session.commit()
 
-        return RefreshToken(token=token)
+        return RefreshToken(token=token.refresh_token)
 
     async def register_user(self, dto: CreateUserDTO) -> Token:
         user = User(**dto.dict())
@@ -116,19 +129,18 @@ class AuthenticateService(object):
         return await self.create_tokens(user) 
 
     async def refresh_tokens(self, refresh_token: RefreshToken) -> TokenPair:
-        user = await self.session.execute(select(User).filter_by(refresh_token=refresh_token.token))
-        user: User = user.scalar()
+        token = await self.session.execute(select(JWTToken).filter_by(refresh_token=refresh_token.token))
+        token: JWTToken = token.scalar()
 
-        if not user:
+        if not token:
             raise NotValidRefreshTokenError
         
-        refresh_token = await self.create_refresh_token(user)
-        access_token = await self.create_access_token(user)
+        if datetime.now() > token.ttl:
+            raise RefreshTokenExpiredError
 
-        return TokenPair(
-            access_token=access_token, 
-            refresh_token=refresh_token
-        )
+        user = await self.session.execute(select(User).filter_by(id=token.user_id))
+
+        return await self.create_tokens(user.scalar())
 
     async def create_tokens(self, user: User) -> TokenPair:
         refresh_token = await self.create_refresh_token(user)

@@ -29,6 +29,13 @@ class FullUserDTO(UpdateUserDTO):
     id: UUID
 
 
+class UserPayloadDTO(BaseModel):
+    iat: int
+    exp: int
+    sub: str
+    user: UserDTO
+
+
 @dataclass
 class UserFilter(object):
     username: str = Path(title="The name of user to get")

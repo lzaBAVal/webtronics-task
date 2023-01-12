@@ -1,6 +1,8 @@
+import time
 import uuid
 
 from datetime import timedelta, datetime
+from aioredis import Redis
 
 from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
@@ -11,9 +13,10 @@ from pydantic import ValidationError
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
+from internal.config.redis import get_redis_session
 
 from internal.dto.token import RefreshToken, Token, TokenPair
-from internal.dto.user import CreateUserDTO, UserAuthDTO, UserDTO
+from internal.dto.user import CreateUserDTO, UserAuthDTO, UserDTO, UserPayloadDTO
 from internal.entity.token import JWTToken
 from internal.entity.user import User
 from internal.exceptions.auth import NotValidRefreshTokenError, NotValidTokenError, RefreshTokenExpiredError
@@ -28,14 +31,14 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl='/v1/auth/sign-in')
 
 
-def get_current_user(token: str = Depends(oauth2_scheme)) -> UserDTO:
-    print("token:", token)
-    return AuthenticateService.verify_token(token)
-
-
 class AuthenticateService(object):
-    def __init__(self, session: AsyncSession = Depends(get_session)) -> None:
+    def __init__(
+        self, 
+        session: AsyncSession = Depends(get_session), 
+        redis_session: Redis = Depends(get_redis_session),
+    ) -> None:
         self.session = session
+        self.redis_session = redis_session
 
     @staticmethod
     def verify_password(plain: str, hashed: str):
@@ -45,27 +48,8 @@ class AuthenticateService(object):
     def get_password_hash(plain):
         return pwd_context.hash(plain)       
     
-    async def create_access_token(self, user: User) -> Token:
-        user_data = UserDTO.from_orm(user)
-        now = datetime.utcnow()
-        payload = {
-            'iat': now,
-            'nbf': now,
-            'exp': now + timedelta(seconds=config.jwt.expires_sec),
-            'sub': str(user.id),
-            'user': user_data.dict(),
-        }
-
-        token = jwt.encode(
-            payload,
-            config.jwt.secret,
-            algorithm=config.jwt.algorithm,
-        )
-
-        return Token(access_token=token)
-
-    @classmethod
-    def verify_token(cls, token: str) -> UserDTO:
+    @staticmethod
+    def decode_token(token: str) -> UserPayloadDTO:
         try:
             payload = jwt.decode(
                 token,
@@ -82,10 +66,48 @@ class AuthenticateService(object):
         except ValidationError:
             raise NotValidTokenError
 
-        return user
+        return UserPayloadDTO(
+            iat=payload.get('iat'),
+            exp=payload.get('exp'),
+            sub=payload.get('sub'),
+            user=user
+        )
 
-    async def delete_refresh_token(self, user: User) -> None:
-        await self.session.execute(delete(JWTToken).filter_by(user_id=user.id))
+        
+
+    async def create_access_token(self, user: User) -> Token:
+        user_data = UserDTO.from_orm(user)
+        now = datetime.utcnow()
+
+        payload = {
+            'iat': now,
+            'exp': now + timedelta(seconds=config.jwt.expires_sec),
+            'sub': str(user.id),
+            'user': user_data.dict(),
+        }
+
+        token = jwt.encode(
+            payload,
+            config.jwt.secret,
+            algorithm=config.jwt.algorithm,
+        )
+
+        return Token(access_token=token)
+
+    async def verify_token(self, token: str) -> UserDTO:
+        payload: UserPayloadDTO = self.decode_token(token)
+
+        if await self.check_token_blacklist(payload, token):
+            raise NotValidTokenError
+
+        return payload.user
+
+    async def check_token_blacklist(self, dto: UserPayloadDTO, token: str):
+        blacklist_token = await self.redis_session.get(str(dto.user.email))
+        return blacklist_token == token
+
+    async def delete_refresh_token(self, user_id: str) -> None:
+        await self.session.execute(delete(JWTToken).filter_by(user_id=user_id))
         await self.session.commit()
     
     async def create_refresh_token(self, user: User) -> RefreshToken:
@@ -95,7 +117,7 @@ class AuthenticateService(object):
         token.user_id = user.id
         token.refresh_token=token_hex
 
-        await self.delete_refresh_token(user)
+        await self.delete_refresh_token(user.id)
 
         self.session.add(token)
         await self.session.commit()
@@ -133,7 +155,9 @@ class AuthenticateService(object):
 
         if not token:
             raise NotValidRefreshTokenError
-        
+
+        print("token.ttl:", token.ttl)
+
         if datetime.now() > token.ttl:
             raise RefreshTokenExpiredError
 
@@ -149,4 +173,20 @@ class AuthenticateService(object):
             access_token=access_token, 
             refresh_token=refresh_token
         )   
+
+    async def delete_tokens(self, token: str):
+        payload = self.decode_token(token)
+
+        await self.delete_refresh_token(payload.sub)
+        await self.add_token_blacklist(token)
         
+    async def add_token_blacklist(self, token: str):
+        payload = self.decode_token(token)
+
+        print(payload.exp, time.time())
+        await self.redis_session.setex(payload.user.email, int(payload.exp - time.time()), token)
+
+
+async def get_current_user(token: str = Depends(oauth2_scheme), auth_service: AuthenticateService = Depends()) -> UserDTO:
+    return await auth_service.verify_token(token)
+

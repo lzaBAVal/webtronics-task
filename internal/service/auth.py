@@ -8,7 +8,7 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from pydantic import ValidationError
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
@@ -43,7 +43,7 @@ class AuthenticateService(object):
     def get_password_hash(plain):
         return pwd_context.hash(plain)       
     
-    async def create_token(self, user: User) -> Token:
+    async def create_access_token(self, user: User) -> Token:
         user_data = UserDTO.from_orm(user)
         now = datetime.utcnow()
         payload = {
@@ -82,9 +82,13 @@ class AuthenticateService(object):
 
         return user
 
-    @classmethod
-    def create_refresh_token(cls) -> RefreshToken:
-        return uuid.uuid4().hex
+    async def create_refresh_token(self, user: User) -> RefreshToken:
+        token = uuid.uuid4().hex
+
+        await self.session.execute(update(User).filter_by(email=user.email).values(refresh_token=token))
+        await self.session.commit()
+
+        return RefreshToken(token=token)
 
     async def register_user(self, dto: CreateUserDTO) -> Token:
         user = User(**dto.dict())
@@ -97,9 +101,9 @@ class AuthenticateService(object):
         except IntegrityError as exc:
             raise UserAlreadyExistsError(exc.params[0])
 
-        return await self.create_token(user)
+        return await self.create_tokens(user)
 
-    async def authenticate_user(self, dto: UserAuthDTO) -> Token:
+    async def authenticate_user(self, dto: UserAuthDTO) -> TokenPair:
         user = await self.session.execute(select(User).filter_by(email=dto.username))
         user: User = user.scalar()
 
@@ -109,21 +113,29 @@ class AuthenticateService(object):
         if not self.verify_password(dto.password, user.password):
             raise WrongUserPasswordError
 
-        return await self.create_token(user) 
+        return await self.create_tokens(user) 
 
     async def refresh_tokens(self, refresh_token: RefreshToken) -> TokenPair:
-        user = await self.session.execute(select(User).filter_by(refresh_token=refresh_token))
+        user = await self.session.execute(select(User).filter_by(refresh_token=refresh_token.token))
         user: User = user.scalar()
 
         if not user:
             raise NotValidRefreshTokenError
         
-        user.refresh_token = AuthenticateService.create_refresh_token
+        refresh_token = await self.create_refresh_token(user)
+        access_token = await self.create_access_token(user)
 
-        access_token = await self.create_token(user)
         return TokenPair(
             access_token=access_token, 
-            refresh_token=RefreshToken(token=user.refresh_token)
+            refresh_token=refresh_token
         )
-        
+
+    async def create_tokens(self, user: User) -> TokenPair:
+        refresh_token = await self.create_refresh_token(user)
+        access_token = await self.create_access_token(user)
+
+        return TokenPair(
+            access_token=access_token, 
+            refresh_token=refresh_token
+        )   
         

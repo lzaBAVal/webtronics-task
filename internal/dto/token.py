@@ -7,7 +7,7 @@ class Token(BaseModel):
 
 
 class RefreshToken(BaseModel):
-    refresh_token: str
+    token: str
 
 
 class TokenPair(Token):

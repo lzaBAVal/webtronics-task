@@ -1,3 +1,5 @@
+import uuid
+
 from datetime import timedelta, datetime
 
 from fastapi import Depends
@@ -10,10 +12,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
-from internal.dto.token import Token
+from internal.dto.token import RefreshToken, Token, TokenPair
 from internal.dto.user import CreateUserDTO, UserAuthDTO, UserDTO
 from internal.entity.user import User
-from internal.exceptions.auth import NotValidTokenError
+from internal.exceptions.auth import NotValidRefreshTokenError, NotValidTokenError
 from internal.config.database import get_session
 from internal.exceptions.user import UserAlreadyExistsError, UserNotFoundError, WrongUserPasswordError
 from internal.config.config import config
@@ -25,7 +27,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl='/v1/auth/sign-in')
 
 
-def get_current_user(token: str = Depends(oauth2_scheme)) -> UserDTO:
+def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     return AuthenticateService.verify_token(token)
 
 
@@ -80,6 +82,10 @@ class AuthenticateService(object):
 
         return user
 
+    @classmethod
+    def create_refresh_token(cls) -> RefreshToken:
+        return uuid.uuid4().hex
+
     async def register_user(self, dto: CreateUserDTO) -> Token:
         user = User(**dto.dict())
 
@@ -104,3 +110,20 @@ class AuthenticateService(object):
             raise WrongUserPasswordError
 
         return await self.create_token(user) 
+
+    async def refresh_tokens(self, refresh_token: RefreshToken) -> TokenPair:
+        user = await self.session.execute(select(User).filter_by(refresh_token=refresh_token))
+        user: User = user.scalar()
+
+        if not user:
+            raise NotValidRefreshTokenError
+        
+        user.refresh_token = AuthenticateService.create_refresh_token
+
+        access_token = await self.create_token(user)
+        return TokenPair(
+            access_token=access_token, 
+            refresh_token=RefreshToken(token=user.refresh_token)
+        )
+        
+        

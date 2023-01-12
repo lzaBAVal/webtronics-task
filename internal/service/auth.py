@@ -66,7 +66,6 @@ class AuthenticateService(object):
 
     @classmethod
     def verify_token(cls, token: str) -> UserDTO:
-        print("#"*30, token)
         try:
             payload = jwt.decode(
                 token,

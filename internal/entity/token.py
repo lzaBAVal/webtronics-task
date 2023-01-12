@@ -21,7 +21,7 @@ class JWTToken(Base):
     refresh_token = sa.Column(sa.String(32), nullable=False)
     ttl = sa.Column(
             sa.DateTime,
-            default=sa.func.now() + timedelta(config.jwt.refresh_expires_sec),
+            default=sa.func.now() + timedelta(seconds=config.jwt.refresh_expires_sec),
             server_default=sa.FetchedValue(),
             nullable = False
         )

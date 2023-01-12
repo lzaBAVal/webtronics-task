@@ -25,11 +25,17 @@ class JWTConfig(BaseSettings):
     secret: str = '38c7c584daac3afdabcf71eb3218ce3ce4027c5e5716d801f0c89ca5710aae28'
 
 
+class RedisConfig(BaseSettings):
+    host: str = 'localhost'
+    port: str = '6379'
+
+
 class Config(BaseSettings):
     server_host: str = '127.0.0.1'
     server_port: str = '8000'
     database_url: str = get_url(DbConfig())
     jwt: JWTConfig = JWTConfig()
+    redis: RedisConfig = RedisConfig()
 
     class Config:
         env_prefix = 'WT'

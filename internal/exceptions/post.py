@@ -1,4 +1,9 @@
 
-class PostAlreadyExistsError(Exception):
+from fastapi import HTTPException, status
+
+
+class PostAlreadyExistsError(HTTPException):
     def __init__(self, msg: str) -> None:
-        super().__init__(f"Post already exists: {msg}")
+        self.status_code = status.HTTP_409_CONFLICT
+        self.detail = f"Post already exists: {msg}"
+        

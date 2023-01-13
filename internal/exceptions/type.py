@@ -1,3 +1,7 @@
-class UUIDWrongTypeError(Exception):
+from fastapi import HTTPException, status
+
+
+class UUIDWrongTypeError(HTTPException):
     def __init__(self, id: str) -> None:
-        super().__init__(f"Id '{id}' is not UUID")
+        self.status_code = status.HTTP_400_BAD_REQUEST
+        self.detail = f"Id '{id}' is not UUID"

@@ -3,6 +3,7 @@ from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 
 from internal.dto.token import RefreshToken, TokenPair, Token
 from internal.dto.user import CreateUserDTO, UserDTO
+from internal.exceptions.auth import RefreshTokenExpiredError
 from internal.service.auth import AuthenticateService, get_current_user
 
 
@@ -22,7 +23,7 @@ async def sign_in(form_data: OAuth2PasswordRequestForm = Depends(), auth_service
 @router.post('/refresh-token', response_model=TokenPair)
 async def refresh_token(refresh_token: RefreshToken, auth_service: AuthenticateService = Depends()):
     return await auth_service.refresh_tokens(refresh_token)
-
+    
 @router.post('/log-out')
 async def log_out(access_token: str = Depends(oauth2_scheme), auth_service: AuthenticateService = Depends()):
     await auth_service.delete_tokens(access_token)

@@ -8,11 +8,15 @@ class NotValidTokenError(HTTPException):
         self.headers = {'WWW-Authenticate': 'Bearer'}
 
 
-class NotValidRefreshTokenError(Exception):
+class NotValidRefreshTokenError(HTTPException):
     def __init__(self) -> None:
-        super().__init__(f"Not valid refresh token")
+        self.status_code = status.HTTP_401_UNAUTHORIZED
+        self.detail = 'Not valid refresh token'
+        self.headers = {'WWW-Authenticate': 'Bearer'}
 
 
-class RefreshTokenExpiredError(Exception):
+class RefreshTokenExpiredError(HTTPException):
     def __init__(self) -> None:
-        super().__init__(f"Refresh token expired")
+        self.status_code = status.HTTP_401_UNAUTHORIZED
+        self.detail = 'Refresh token expired'
+        self.headers = {'WWW-Authenticate': 'Bearer'}

@@ -1,3 +1,4 @@
+import sys
 import time
 import uuid
 
@@ -30,6 +31,7 @@ from passlib.context import CryptContext
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl='/v1/auth/sign-in')
 
+INT = 2 ** 32-1
 
 class AuthenticateService(object):
     def __init__(
@@ -74,7 +76,6 @@ class AuthenticateService(object):
         )
 
         
-
     async def create_access_token(self, user: User) -> Token:
         user_data = UserDTO.from_orm(user)
         now = datetime.utcnow()
@@ -103,8 +104,8 @@ class AuthenticateService(object):
         return payload.user
 
     async def check_token_blacklist(self, dto: UserPayloadDTO, token: str):
-        blacklist_token = await self.redis_session.get(str(dto.user.email))
-        return blacklist_token == token
+        blacklist_token = await self.redis_session.zrangebyscore(dto.user.email, int(time.time()), INT)
+        return token in blacklist_token
 
     async def delete_refresh_token(self, user_id: str) -> None:
         await self.session.execute(delete(JWTToken).filter_by(user_id=user_id))
@@ -178,15 +179,12 @@ class AuthenticateService(object):
         payload = self.decode_token(token)
 
         await self.delete_refresh_token(payload.sub)
-        await self.add_token_blacklist(token)
+        await self.add_access_token_blacklist(token)
         
-    async def add_token_blacklist(self, token: str):
+    async def add_access_token_blacklist(self, token: str):
         payload = self.decode_token(token)
-
-        print(payload.exp, time.time())
-        await self.redis_session.setex(payload.user.email, int(payload.exp - time.time()), token)
+        await self.redis_session.zadd(payload.user.email, {token: payload.exp})
 
 
 async def get_current_user(token: str = Depends(oauth2_scheme), auth_service: AuthenticateService = Depends()) -> UserDTO:
     return await auth_service.verify_token(token)
-

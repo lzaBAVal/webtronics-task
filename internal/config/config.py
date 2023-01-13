@@ -20,7 +20,7 @@ def get_url(conf: DbConfig) -> str:
 
 class JWTConfig(BaseSettings):
     algorithm: str = 'HS256'
-    expires_sec: int = 3600
+    expires_sec: int = 60
     refresh_expires_sec: int = 3600 * 24
     secret: str = '38c7c584daac3afdabcf71eb3218ce3ce4027c5e5716d801f0c89ca5710aae28'
 

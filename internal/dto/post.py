@@ -1,10 +1,14 @@
 from pydantic import BaseModel
+from uuid import UUID
 
-
-class PostDTO(BaseModel):
+class CreatePostDTO(BaseModel):
     title: str
     text: str
 
     class Config:
         allow_mutations = False
-        from_orm = True
+        orm_mode = True
+
+
+class PostDTO(CreatePostDTO):
+    id: UUID

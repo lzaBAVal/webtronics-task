@@ -1,4 +1,3 @@
-import sys
 import time
 import uuid
 
@@ -31,7 +30,7 @@ from passlib.context import CryptContext
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl='/v1/auth/sign-in')
 
-INT = 2 ** 32-1
+BIGINT = 2 ** 32-1
 
 class AuthenticateService(object):
     def __init__(
@@ -42,14 +41,17 @@ class AuthenticateService(object):
         self.session = session
         self.redis_session = redis_session
 
+
     @staticmethod
     def verify_password(plain: str, hashed: str):
         return pwd_context.verify(plain, hashed)
+
 
     @staticmethod
     def get_password_hash(plain):
         return pwd_context.hash(plain)       
     
+
     @staticmethod
     def decode_token(token: str) -> UserPayloadDTO:
         try:
@@ -77,15 +79,28 @@ class AuthenticateService(object):
 
         
     async def create_access_token(self, user: User) -> Token:
+        print("#"*30, user.id, type(user.id))
         user_data = UserDTO.from_orm(user)
+        
+        token = self.encode_token(user_data)
+
+        return Token(access_token=token)
+
+
+    @staticmethod
+    def encode_token(dto: UserDTO) -> str:
         now = datetime.utcnow()
+
+        dto.id = str(dto.id)
 
         payload = {
             'iat': now,
             'exp': now + timedelta(seconds=config.jwt.expires_sec),
-            'sub': str(user.id),
-            'user': user_data.dict(),
+            'sub': 'auth',
+            'user': dto.dict(),
         }
+
+        print(payload.get('user'))
 
         token = jwt.encode(
             payload,
@@ -93,7 +108,7 @@ class AuthenticateService(object):
             algorithm=config.jwt.algorithm,
         )
 
-        return Token(access_token=token)
+        return token
 
     async def verify_token(self, token: str) -> UserDTO:
         payload: UserPayloadDTO = self.decode_token(token)
@@ -103,14 +118,17 @@ class AuthenticateService(object):
 
         return payload.user
 
+
     async def check_token_blacklist(self, dto: UserPayloadDTO, token: str):
-        blacklist_token = await self.redis_session.zrangebyscore(dto.user.email, int(time.time()), INT)
+        blacklist_token = await self.redis_session.zrangebyscore(dto.user.email, int(time.time()), BIGINT)
         return token in blacklist_token
+
 
     async def delete_refresh_token(self, user_id: str) -> None:
         await self.session.execute(delete(JWTToken).filter_by(user_id=user_id))
         await self.session.commit()
     
+
     async def create_refresh_token(self, user: User) -> RefreshToken:
         token_hex = uuid.uuid4().hex
 
@@ -125,6 +143,7 @@ class AuthenticateService(object):
 
         return RefreshToken(token=token.refresh_token)
 
+
     async def register_user(self, dto: CreateUserDTO) -> Token:
         user = User(**dto.dict())
 
@@ -138,6 +157,7 @@ class AuthenticateService(object):
 
         return await self.create_tokens(user)
 
+
     async def authenticate_user(self, dto: UserAuthDTO) -> TokenPair:
         user = await self.session.execute(select(User).filter_by(email=dto.username))
         user: User = user.scalar()
@@ -150,6 +170,7 @@ class AuthenticateService(object):
 
         return await self.create_tokens(user) 
 
+
     async def refresh_tokens(self, refresh_token: RefreshToken) -> TokenPair:
         token = await self.session.execute(select(JWTToken).filter_by(refresh_token=refresh_token.token))
         token: JWTToken = token.scalar()
@@ -157,14 +178,13 @@ class AuthenticateService(object):
         if not token:
             raise NotValidRefreshTokenError
 
-        print("token.ttl:", token.ttl)
-
         if datetime.now() > token.ttl:
             raise RefreshTokenExpiredError
 
         user = await self.session.execute(select(User).filter_by(id=token.user_id))
 
         return await self.create_tokens(user.scalar())
+
 
     async def create_tokens(self, user: User) -> TokenPair:
         refresh_token = await self.create_refresh_token(user)
@@ -175,12 +195,14 @@ class AuthenticateService(object):
             refresh_token=refresh_token
         )   
 
+
     async def delete_tokens(self, token: str):
         payload = self.decode_token(token)
 
         await self.delete_refresh_token(payload.sub)
         await self.add_access_token_blacklist(token)
         
+
     async def add_access_token_blacklist(self, token: str):
         payload = self.decode_token(token)
         await self.redis_session.zadd(payload.user.email, {token: payload.exp})

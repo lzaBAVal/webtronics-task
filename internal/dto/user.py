@@ -6,6 +6,7 @@ from pydantic import BaseModel, EmailStr
 from uuid import UUID
 
 class UserDTO(BaseModel):
+    id: UUID
     email: EmailStr
 
     class Config:
@@ -23,10 +24,6 @@ class CreateUserDTO(UserDTO):
 
 class UpdateUserDTO(CreateUserDTO):
     pass
-
-
-class FullUserDTO(UpdateUserDTO):
-    id: UUID
 
 
 class UserPayloadDTO(BaseModel):

@@ -10,9 +10,6 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from pydantic import ValidationError
 
-from sqlalchemy import delete, select, update
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import IntegrityError
 from internal.config.redis import get_redis_session
 
 from internal.dto.token import RefreshToken, Token, TokenPair
@@ -21,10 +18,13 @@ from internal.entity.token import JWTToken
 from internal.entity.user import User
 from internal.exceptions.auth import NotValidRefreshTokenError, NotValidTokenError, RefreshTokenExpiredError
 from internal.config.database import get_session
-from internal.exceptions.user import UserAlreadyExistsError, UserNotFoundError, WrongUserPasswordError
+from internal.exceptions.user import UserNotFoundError, WrongUserPasswordError
 from internal.config.config import config
 
 from passlib.context import CryptContext
+
+from internal.repository.token import TokenRepo
+from internal.repository.user import UserRepo
 
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -35,10 +35,12 @@ BIGINT = 2 ** 32-1
 class AuthenticateService(object):
     def __init__(
         self, 
-        session: AsyncSession = Depends(get_session), 
+        token_repo: TokenRepo = Depends(), 
+        user_repo: UserRepo = Depends(),
         redis_session: Redis = Depends(get_redis_session),
     ) -> None:
-        self.session = session
+        self.token_repo = token_repo
+        self.user_repo = user_repo
         self.redis_session = redis_session
 
 
@@ -77,16 +79,6 @@ class AuthenticateService(object):
             user=user
         )
 
-        
-    async def create_access_token(self, user: User) -> Token:
-        print("#"*30, user.id, type(user.id))
-        user_data = UserDTO.from_orm(user)
-        
-        token = self.encode_token(user_data)
-
-        return Token(access_token=token)
-
-
     @staticmethod
     def encode_token(dto: UserDTO) -> str:
         now = datetime.utcnow()
@@ -100,8 +92,6 @@ class AuthenticateService(object):
             'user': dto.dict(),
         }
 
-        print(payload.get('user'))
-
         token = jwt.encode(
             payload,
             config.jwt.secret,
@@ -109,6 +99,13 @@ class AuthenticateService(object):
         )
 
         return token
+
+    async def create_access_token(self, user: User) -> Token:
+        user_data = UserDTO.from_orm(user)
+        token = self.encode_token(user_data)
+
+        return Token(access_token=token)
+
 
     async def verify_token(self, token: str) -> UserDTO:
         payload: UserPayloadDTO = self.decode_token(token)
@@ -125,42 +122,30 @@ class AuthenticateService(object):
 
 
     async def delete_refresh_token(self, user_id: str) -> None:
-        await self.session.execute(delete(JWTToken).filter_by(user_id=user_id))
-        await self.session.commit()
-    
+        await self.repo.delete_by_user_id(user_id)
+
 
     async def create_refresh_token(self, user: User) -> RefreshToken:
-        token_hex = uuid.uuid4().hex
-
         token = JWTToken()
         token.user_id = user.id
-        token.refresh_token=token_hex
+        token.refresh_token=uuid.uuid4().hex
 
-        await self.delete_refresh_token(user.id)
-
-        self.session.add(token)
-        await self.session.commit()
+        await self.token_repo.delete_by_user_id(user.id)
+        token = await self.token_repo.add(token)
 
         return RefreshToken(token=token.refresh_token)
 
 
     async def register_user(self, dto: CreateUserDTO) -> Token:
         user = User(**dto.dict())
-
         user.password = self.get_password_hash( user.password)
-
-        try:
-            self.session.add(user)
-            await self.session.commit()
-        except IntegrityError as exc:
-            raise UserAlreadyExistsError(exc.params[0])
+        user = await self.user_repo.create(user)
 
         return await self.create_tokens(user)
 
 
     async def authenticate_user(self, dto: UserAuthDTO) -> TokenPair:
-        user = await self.session.execute(select(User).filter_by(email=dto.username))
-        user: User = user.scalar()
+        user = await self.user_repo.get_by_email(str(dto.email))
 
         if not user:
             raise UserNotFoundError
@@ -172,8 +157,7 @@ class AuthenticateService(object):
 
 
     async def refresh_tokens(self, refresh_token: RefreshToken) -> TokenPair:
-        token = await self.session.execute(select(JWTToken).filter_by(refresh_token=refresh_token.token))
-        token: JWTToken = token.scalar()
+        token = await self.token_repo.get_by_token(refresh_token.token)
 
         if not token:
             raise NotValidRefreshTokenError
@@ -181,7 +165,7 @@ class AuthenticateService(object):
         if datetime.now() > token.ttl:
             raise RefreshTokenExpiredError
 
-        user = await self.session.execute(select(User).filter_by(id=token.user_id))
+        user = await self.user_repo.get_by_id(token.user_id)
 
         return await self.create_tokens(user.scalar())
 

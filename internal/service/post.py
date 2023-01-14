@@ -3,26 +3,27 @@ from uuid import UUID
 from fastapi import Depends, Request
 from sqlalchemy import select 
 
-from internal.dto.post import PostDTO
+from internal.dto.post import PostDTO, CreatePostDTO
 from internal.dto.user import UserDTO
 from internal.entity.post import Post
 from internal.config.database import get_session
-from internal.exceptions.post import PostAlreadyExistsError, PostNotFoundError
+from internal.exceptions.post import PostAlreadyExistsError, NoAccessManagePostError
+from internal.repository.post import PostRepo
 from internal.service.auth import get_current_user
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm.exc import NoResultFound
 
 
 class PostService(object):
-    def __init__(self, session: AsyncSession = Depends(get_session), user: UserDTO = Depends(get_current_user)) -> None:
-        self.session = session
+    def __init__(self, repo: PostRepo = Depends(), user: UserDTO = Depends(get_current_user)) -> None:
+        self.repo = repo
         self.user = user
 
 
     async def get_all(self) -> List[PostDTO]:
-        posts = await self.session.execute(select(Post).filter_by(user_id=self.user.id))
-        posts = posts.all()
+        posts = await self.repo.get_by_user_id(self.user.id)
 
         dtos = []
         for post in posts:
@@ -31,30 +32,20 @@ class PostService(object):
         return dtos
 
 
-    async def create(self, dto: PostDTO) -> Post:
-        post = Post(**dto.dict())
-        post.user_id = self.user.id
-
+    async def create(self, dto: CreatePostDTO) -> Post:
         try:
-            self.session.add(post)
-            await self.session.commit()
-
-            return post
-
+            return await self.repo.create(dto, self.user.id)
         except IntegrityError as exc:
             raise PostAlreadyExistsError(exc.params[0])
 
     async def delete(self, uuid: str):
-        post = await self.get_post(uuid)
+        post = await self.repo.get_by_id(uuid)
 
-        await self.session.delete(post)
-        await self.session.commit()
+        if post.user_id != self.user.id:
+            raise NoAccessManagePostError(uuid)
+
+        await self.repo.delete_by_id(uuid)
+
 
     async def get_post(self, uuid: str) -> Post:
-        post = await self.session.execute(select(Post).filter_by(user_id=self.user.id, id=uuid))
-        post: Post = post.scalar()
-
-        if not post:
-            raise PostNotFoundError(uuid)
-            
-        return post
+        return await self.repo.get_by_id(uuid)

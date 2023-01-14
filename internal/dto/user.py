@@ -14,7 +14,8 @@ class UserDTO(BaseModel):
         orm_mode = True
 
 
-class UserAuthDTO(UserDTO):
+class UserAuthDTO(BaseModel):
+    email: EmailStr
     password: str
 
 

@@ -34,4 +34,4 @@ async def delete(uuid: str, post_service: PostService = Depends()) -> Any:
     if not is_valid_uuid(uuid):
         raise UUIDWrongTypeError(uuid)
 
-    return await post_service.get_post(uuid)
+    await post_service.get_post(uuid)

@@ -21,7 +21,7 @@ class UserRepo(object):
     ) -> None:
         self.session = session
 
-    async def get_all(self, limit: int, offset: int) -> List[UserDTO]:
+    async def get_all(self, limit: int = 10, offset: int = 0) -> List[UserDTO]:
         res = await self.session.execute(select(User).limit(limit).offset(offset))
         return res.scalars().all()
 

@@ -2,11 +2,14 @@ from datetime import timedelta
 from sqlalchemy.dialects import postgresql as psql
 from sqlalchemy.orm import declarative_base
 
-from internal.config.config import config
+from internal.config.config import get_config
 
 import sqlalchemy as sa
 
 from internal.entity.base import Base
+
+
+config = get_config()
 
 
 class JWTToken(Base):

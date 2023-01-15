@@ -20,7 +20,7 @@ from internal.entity.token import JWTToken
 from internal.entity.user import User
 from internal.exceptions.auth import NotValidRefreshTokenError, NotValidTokenError, RefreshTokenExpiredError
 from internal.exceptions.user import WrongUserPasswordError
-from internal.config.config import config
+from internal.config.config import get_config
 
 
 from internal.repository.token import TokenRepo
@@ -29,6 +29,7 @@ from internal.repository.user import UserRepo
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl='/v1/auth/sign-in')
+config = get_config()
 
 BIGINT = 2 ** 32-1
 

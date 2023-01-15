@@ -19,7 +19,7 @@ class TokenRepo(object):
         self,
         session: AsyncSession = Depends(get_session), 
     ) -> None:
-        self.sessin = session
+        self.session = session
 
     async def delete_by_user_id(self, user_id):
         await self.session.execute(delete(JWTToken).filter_by(user_id=user_id))
@@ -30,3 +30,7 @@ class TokenRepo(object):
         await self.session.commit()
 
         return token
+
+    async def get_by_token(self, token: str) -> JWTToken:
+        token = await self.session.execute(select(JWTToken).filter_by(refresh_token=token))
+        return token.scalar()

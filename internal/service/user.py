@@ -1,11 +1,8 @@
 from typing import List
 from fastapi import Depends
-from sqlalchemy import select, update
-from sqlalchemy.ext.asyncio import AsyncSession
-from internal.config.database import get_session
+
 from internal.config.redis import get_redis_session
 from internal.dto.user import UpdateUserDTO, UserDTO
-
 from internal.entity.user import User
 from internal.exceptions.user import UserNotFoundError
 from internal.repository.user import UserRepo

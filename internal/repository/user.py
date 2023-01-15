@@ -19,7 +19,7 @@ class UserRepo(object):
         self,
         session: AsyncSession = Depends(get_session), 
     ) -> None:
-        self.sessin = session
+        self.session = session
 
     async def get_all(self, limit: int, offset: int) -> List[UserDTO]:
         res = await self.session.execute(select(User).limit(limit).offset(offset))

@@ -5,23 +5,23 @@ from datetime import timedelta, datetime
 from aioredis import Redis
 
 from fastapi import Depends
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 
 from jose import JWTError, jwt
 from pydantic import ValidationError
 
+from passlib.context import CryptContext
+
 from internal.config.redis import get_redis_session
 
-from internal.dto.token import RefreshToken, Token, TokenPair
-from internal.dto.user import CreateUserDTO, UserAuthDTO, UserDTO, UserPayloadDTO
+from internal.dto.token import RefreshToken, AccessToken, TokenPair
+from internal.dto.user import UserDTO, UserPayloadDTO
 from internal.entity.token import JWTToken
 from internal.entity.user import User
 from internal.exceptions.auth import NotValidRefreshTokenError, NotValidTokenError, RefreshTokenExpiredError
-from internal.config.database import get_session
-from internal.exceptions.user import UserNotFoundError, WrongUserPasswordError
+from internal.exceptions.user import WrongUserPasswordError
 from internal.config.config import config
 
-from passlib.context import CryptContext
 
 from internal.repository.token import TokenRepo
 from internal.repository.user import UserRepo
@@ -100,11 +100,11 @@ class AuthenticateService(object):
 
         return token
 
-    async def create_access_token(self, user: User) -> Token:
+    async def create_access_token(self, user: User) -> AccessToken:
         user_data = UserDTO.from_orm(user)
         token = self.encode_token(user_data)
 
-        return Token(access_token=token)
+        return AccessToken(token=token)
 
 
     async def verify_token(self, token: str) -> UserDTO:
@@ -136,21 +136,20 @@ class AuthenticateService(object):
         return RefreshToken(token=token.refresh_token)
 
 
-    async def register_user(self, dto: CreateUserDTO) -> Token:
-        user = User(**dto.dict())
-        user.password = self.get_password_hash( user.password)
+    async def register_user(self, data_form: OAuth2PasswordRequestForm) -> AccessToken:
+        user = User()
+        user.email = data_form.username
+        user.password = self.get_password_hash(data_form.password)
+
         user = await self.user_repo.create(user)
 
         return await self.create_tokens(user)
 
 
-    async def authenticate_user(self, dto: UserAuthDTO) -> TokenPair:
-        user = await self.user_repo.get_by_email(str(dto.email))
-
-        if not user:
-            raise UserNotFoundError
+    async def authenticate_user(self, data_form: OAuth2PasswordRequestForm) -> TokenPair:
+        user = await self.user_repo.get_by_email(str(data_form.username))
         
-        if not self.verify_password(dto.password, user.password):
+        if not user or not self.verify_password(data_form.password, user.password):
             raise WrongUserPasswordError
 
         return await self.create_tokens(user) 

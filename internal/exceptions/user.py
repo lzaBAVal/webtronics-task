@@ -7,12 +7,12 @@ class UserAlreadyExistsError(Exception):
         self.detail = f"User with this email '{email}' already exists."
 
 class UserNotFoundError(HTTPException):
-    def __init__(self, id: str) -> None:
+    def __init__(self) -> None:
         self.status_code = status.HTTP_404_NOT_FOUND
-        self.detail = f"User not found with id '{id}'"
+        self.detail = f"User not found with id"
 
 
 class WrongUserPasswordError(Exception):
     def __init__(self) -> None:
         self.status_code = status.HTTP_401_UNAUTHORIZED
-        self.detail = f"Wrong password"
+        self.detail = f"Wrong email or password"

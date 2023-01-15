@@ -1,9 +1,8 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Form, status
 from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 
-from internal.dto.token import RefreshToken, TokenPair, Token
-from internal.dto.user import CreateUserDTO, UserDTO
-from internal.exceptions.auth import RefreshTokenExpiredError
+from internal.dto.token import RefreshToken, TokenPair
+from internal.dto.user import UserDTO
 from internal.service.auth import AuthenticateService, get_current_user
 
 
@@ -12,7 +11,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl='/v1/auth/sign-in')
 
 
 @router.post('/sign-up', response_model=TokenPair, status_code=status.HTTP_201_CREATED)
-async def sign_up(form_data: CreateUserDTO = Depends(), auth_service: AuthenticateService = Depends()):
+async def sign_up(form_data: OAuth2PasswordRequestForm = Depends(), auth_service: AuthenticateService = Depends()):
     return await auth_service.register_user(form_data)
 
 @router.post('/sign-in', response_model=TokenPair)

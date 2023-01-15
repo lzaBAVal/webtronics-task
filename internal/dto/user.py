@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from fastapi import Path
+from fastapi import Form, Path
 
 from pydantic import BaseModel, EmailStr
 from uuid import UUID
@@ -15,16 +15,25 @@ class UserDTO(BaseModel):
 
 
 class UserAuthDTO(BaseModel):
+    username: EmailStr
+    password: str
+
+
+class CreateUserForm:
+    def __init__(
+        self,
+        email: EmailStr = Form(),
+        password: str   = Form()
+    ) -> None:
+        self.email = email
+        self.password = password
+        
+    
+
+
+class UpdateUserDTO(BaseModel):
     email: EmailStr
     password: str
-
-
-class CreateUserDTO(UserDTO):
-    password: str
-
-
-class UpdateUserDTO(CreateUserDTO):
-    pass
 
 
 class UserPayloadDTO(BaseModel):

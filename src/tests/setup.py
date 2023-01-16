@@ -16,8 +16,6 @@ config = get_config(
     _env_file_encoding = 'utf-8'
 )
 
-print("\n"*2, config.dict(), "\n"*2)
-
 engine = create_async_engine(config.db.get_url(), echo=True)
 
 async_session = sessionmaker(

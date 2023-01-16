@@ -17,3 +17,5 @@ async_session = sessionmaker(
 async def get_session() -> Generator[scoped_session, None, None]:
     async with async_session() as session:
         yield session
+
+#TODO create app start and app finish

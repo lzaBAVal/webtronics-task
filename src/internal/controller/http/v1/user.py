@@ -16,7 +16,7 @@ async def get_all_uesrs(user_service: UserService = Depends()) -> Any:
 
 @router.get('/me', response_model=UserDTO)
 async def get_me(user_service: UserService = Depends()) -> Any:
-    return user_service.get()
+    return user_service.get()   
 
 
 @router.patch('/{id}', response_model=UserDTO)

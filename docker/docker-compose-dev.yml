@@ -1,0 +1,35 @@
+version: "3.9"
+services:      
+  redis:
+    image: "redis:alpine"
+    ports:
+      - "6379:6379"
+
+  postgres:
+    image: postgres:alpine
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=strongpass
+      - POSTGRES_DB=webtronics
+    ports:
+      - 5432:5432
+    volumes:
+      - dev-data-volume:/var/lib/postgresql/data
+    healthcheck:
+      test: pg_isready -U admin -d webtronics
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  pg_admin:
+    image: dpage/pgadmin4
+    depends_on:
+      - postgres
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=pg_admin@web.com
+      - PGADMIN_DEFAULT_PASSWORD=superstrongpassword
+    ports:
+      - 5431:80
+
+volumes:
+  dev-data-volume:

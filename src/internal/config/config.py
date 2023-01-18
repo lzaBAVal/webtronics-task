@@ -1,21 +1,25 @@
-from enum import Enum
 from functools import lru_cache
 from pydantic import BaseSettings
+
+
+env_file = ["dev.env", "test.env", ".env"]
 
 
 class DbConfig(BaseSettings):
     scheme: str = 'postgresql+asyncpg'
     user: str = 'admin'
-    password: str = 'strongpass'
-    host: str = 'localhost'
+    password: str = ''
+    host: str = ''
     port: str = '5432'
-    name: str = 'webtronics'
+    name: str = ''
 
     class Config:
         env_prefix = "db_"
+        env_file = env_file
 
     
     def get_url(self) -> str:
+        print(self.scheme + "://" + self.user + ":" + self.password + "@" + self.host + ":" + self.port + "/" + self.name)
         return self.scheme + "://" + self.user + ":" + self.password + "@" + self.host + ":" + self.port + "/" + self.name
 
 
@@ -28,6 +32,7 @@ class JWTConfig(BaseSettings):
     class Config:
         env_prefix = "jwt_"
         env_file_encoding = 'utf-8'
+        env_file = env_file
 
 
 
@@ -37,6 +42,8 @@ class RedisConfig(BaseSettings):
 
     class Config:
         env_prefix = "redis_"
+        env_file = env_file
+
 
 
 class Config(BaseSettings):

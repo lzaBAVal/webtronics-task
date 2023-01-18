@@ -5,5 +5,4 @@ todo_list
 .vscode
 .pytest_cache
 .mypy_cache
-.env
-test.env
+*.env

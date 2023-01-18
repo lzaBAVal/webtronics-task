@@ -2,7 +2,7 @@ from typing import List
 from fastapi import Depends
 
 from internal.config.redis import get_redis_session
-from internal.dto.user import UpdateUserDTO, UserDTO
+from internal.dto.user import UpdateUserDTO, UserDTO, UserAuthDTO
 from internal.entity.user import User
 from internal.exceptions.user import UserNotFoundError
 from internal.repository.user import UserRepo
@@ -14,7 +14,7 @@ class UserService(object):
         self, 
         user_repo: UserRepo = Depends(), 
         redis_session = Depends(get_redis_session),
-        user: UserDTO = Depends(get_current_user)
+        user: UserAuthDTO = Depends(get_current_user)
     ) -> None:
         self.repo = user_repo
         self.redis_session = redis_session

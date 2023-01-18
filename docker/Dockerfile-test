@@ -1,0 +1,16 @@
+FROM python:3.10-slim
+
+WORKDIR /code/
+
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+ENV SQLALCHEMY_SILENCE_UBER_WARNING=1
+
+COPY ["/src/requirements.txt",  "/code/requirements.txt"]
+RUN  pip3.10 install -U --upgrade pip & pip3.10 install -Ur requirements.txt
+
+COPY ["./env_files/test.env", "./src/", "/code/"]
+
+CMD ["./wait-for-it.sh", "db:5432", "--", "./start-test.sh"]
+
+EXPOSE 8000

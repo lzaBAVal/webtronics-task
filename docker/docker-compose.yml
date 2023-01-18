@@ -1,14 +1,14 @@
 version: "3.9"
 services:
   app:
-    build:
-      context: ./src
+    image: webtronics-task-app
+
     ports:
       - "8000:8000"
     depends_on:
       - postgres
-      - redis
-
+      - redis 
+      
   redis:
     image: "redis:alpine"
     ports:
@@ -22,8 +22,8 @@ services:
       - POSTGRES_DB=webtronics
     ports:
       - 5432:5432
-    # volumes:
-    #   - data-volume:/var/lib/postgresql/data
+    volumes:
+      - data-volume:/var/lib/postgresql/data
     healthcheck:
       test: pg_isready -U admin -d webtronics
       interval: 10s

@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 from alembic import context
 
-from internal.config import config as DBConfig
+from internal.config import config as app_conf
 
 from internal.entity.base import Base
 from internal.entity import user, post, like, token
@@ -17,7 +17,7 @@ from internal.entity import user, post, like, token
 # access to the values within the .ini file in use.
 config = context.config
 
-url = DBConfig.get_url(DBConfig.DbConfig())
+url = app_conf.DbConfig().get_url()
 
 config.set_main_option("sqlalchemy.url", url)
 

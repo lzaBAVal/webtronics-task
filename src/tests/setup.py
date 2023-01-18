@@ -11,10 +11,7 @@ from sqlalchemy.orm import sessionmaker, scoped_session
 from typing import Generator
 
 
-config = get_config(
-    _env_file="test.env",
-    _env_file_encoding = 'utf-8'
-)
+config = get_config()
 
 engine = create_async_engine(config.db.get_url(), echo=True)
 

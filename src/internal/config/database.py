@@ -8,6 +8,7 @@ from typing import Generator
 
 
 config = get_config()
+# print('#'*40, config.db.get_url())
 engine = create_async_engine(config.db.get_url(), echo=True)
 
 async_session = sessionmaker(

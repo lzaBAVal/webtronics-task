@@ -1,25 +1,19 @@
-from fastapi import Depends
-
 from typing import List
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, select
 
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.orm import Session
 
-from internal.config.database import get_session
-from internal.dto.post import PostDTO, CreatePostDTO
+from internal.dto.post import CreatePostDTO
 from internal.entity.post import Post
 from internal.exceptions.post import PostNotFoundError
+from internal.repository.base import BaseRepository
 
 
 
-class PostRepo(object):
-    def __init__(
-        self,
-        session: AsyncSession = Depends(get_session), 
-    ) -> None:
-        self.sessin = session
+class PostRepo(BaseRepository):
+    def __init__(self, session: Session) -> None:
+        super().__init__(session)
 
     async def get_by_user_id(self, user_id: str) -> List[Post]:
         posts = await self.session.execute(select(Post).filter_by(user_id=user_id))
@@ -30,7 +24,7 @@ class PostRepo(object):
         post.user_id = user_id
 
         self.session.add(post)
-        await self.session.commit()
+        await self.session.flush()
 
         return post
     
@@ -45,4 +39,3 @@ class PostRepo(object):
 
     async def delete_by_id(self, id: str):
         await self.session.execute(delete(Post).filter_by(id=id))
-        await self.session.commit()

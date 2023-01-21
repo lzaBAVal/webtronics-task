@@ -1,24 +1,33 @@
 from asyncio import current_task
+from typing import Callable, Generator, Type
+from fastapi import Depends
+
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_scoped_session
-from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy.orm import sessionmaker, Session
 
 from internal.config.config import get_config
-
-from typing import Generator
+from internal.repository.base import BaseRepository
 
 
 config = get_config()
-# print('#'*40, config.db.get_url())
 engine = create_async_engine(config.db.get_url(), echo=True)
 
 async_session_factory = sessionmaker(
     engine, class_=AsyncSession, expire_on_commit=False
 )
 
-async_scoped_session = async_scoped_session(async_session_factory, scopefunc=current_task)
+AsuncScopedSession = async_scoped_session(async_session_factory, scopefunc=current_task)
 
-async def get_session() -> Generator[scoped_session, None, None]:
-    async with async_scoped_session() as session:
+
+async def get_session() -> Generator[async_scoped_session, None, None]:
+    async with AsuncScopedSession() as session:
         yield session
+        await session.commit()
 
-#TODO create app start and app finish
+
+def get_repository(repo_type: Type[BaseRepository],) -> Callable[[Session], BaseRepository]:
+    def _get_repo(sess: Session = Depends(get_session),) -> BaseRepository:
+        return repo_type(sess)
+
+    return _get_repo
+    

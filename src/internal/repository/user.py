@@ -1,25 +1,19 @@
-from fastapi import Depends
-
 from typing import List
 
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
-from internal.config.database import get_session
 from internal.entity.user import User
 from internal.dto.user import UpdateUserDTO, UserDTO
-from sqlalchemy.exc import IntegrityError
 
 from internal.exceptions.user import UserAlreadyExistsError
+from internal.repository.base import BaseRepository
 
 
-class UserRepo(object):
-    def __init__(
-        self,
-        session: AsyncSession = Depends(get_session), 
-    ) -> None:
-        self.session = session
+class UserRepo(BaseRepository):
+    def __init__(self, session: Session) -> None:
+        super().__init__(session)
 
     async def get_all(self, limit: int = 10, offset: int = 0) -> List[UserDTO]:
         res = await self.session.execute(select(User).limit(limit).offset(offset))
@@ -36,7 +30,7 @@ class UserRepo(object):
     async def create(self, user: User) -> User:
         try:
             self.session.add(user)
-            await self.session.commit()
+            await self.session.flush()
         except IntegrityError as exc:
             raise UserAlreadyExistsError(exc.params[0])
 
@@ -49,7 +43,6 @@ class UserRepo(object):
             return None
 
         await self.session.execute(update(User).filter_by(id=dto.id).values(**dto.dict()))
-        await self.session.commit()
 
         user = await self.session.execute(select(User).filter_by(id=dto.id))
         return user.scalar()

@@ -13,7 +13,7 @@ from pydantic import ValidationError
 from passlib.context import CryptContext
 
 from internal.config.redis import get_redis_session
-
+from internal.config.database import get_repository
 from internal.dto.token import RefreshToken, AccessToken, TokenPair
 from internal.dto.user import UserDTO, UserPayloadDTO
 from internal.entity.token import JWTToken
@@ -36,8 +36,8 @@ BIGINT = 2 ** 32-1
 class AuthenticateService(object):
     def __init__(
         self, 
-        token_repo: TokenRepo = Depends(), 
-        user_repo: UserRepo = Depends(),
+        token_repo: TokenRepo = Depends(get_repository(TokenRepo)), 
+        user_repo: UserRepo = Depends(get_repository(UserRepo)),
         redis_session: Redis = Depends(get_redis_session),
     ) -> None:
         self.token_repo = token_repo
@@ -143,7 +143,7 @@ class AuthenticateService(object):
         user.password = self.get_password_hash(data_form.password)
 
         user = await self.user_repo.create(user)
-
+        
         return await self.create_tokens(user)
 
 

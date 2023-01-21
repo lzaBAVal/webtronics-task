@@ -3,7 +3,6 @@ from fastapi import APIRouter, Depends
 from internal.dto.user import UpdateUserDTO, UserDTO
 
 from internal.service.user import UserService
-from internal.service.auth import get_current_user
 
 
 router = APIRouter()
@@ -16,7 +15,7 @@ async def get_all_uesrs(user_service: UserService = Depends()) -> Any:
 
 @router.get('/me', response_model=UserDTO)
 async def get_me(user_service: UserService = Depends()) -> Any:
-    return user_service.get()   
+    return await user_service.get()   
 
 
 @router.patch('/{id}', response_model=UserDTO)

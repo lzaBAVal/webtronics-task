@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from internal.config.config import get_config
 from internal.config.database import get_session
+from internal.entity.base import Base
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_scoped_session
 from sqlalchemy.orm import sessionmaker, scoped_session
@@ -25,15 +26,16 @@ AsyncScopedSession = async_scoped_session(async_session_factory, scopefunc=curre
 
 async def get_test_session() -> Generator[scoped_session, None, None]:
     session = AsyncScopedSession()
-    await session.begin_nested()
-    
-    yield session
 
-    await session.rollback()
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(Base.metadata.create_all)
+
+    yield session
     # await session.flush()
     await session.close()
 
-
+    
 def get_test_client(app: FastAPI):
     app.dependency_overrides[get_session] = get_test_session
     return TestClient(app)

@@ -26,8 +26,8 @@ async def get_session() -> Generator[async_scoped_session, None, None]:
 
 
 def get_repository(repo_type: Type[BaseRepository],) -> Callable[[Session], BaseRepository]:
-    def _get_repo(sess: Session = Depends(get_session),) -> BaseRepository:
-        return repo_type(sess)
+    def _get_repo(session: Session = Depends(get_session)) -> BaseRepository:
+        return repo_type(session)
 
     return _get_repo
     
